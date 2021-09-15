@@ -1,7 +1,7 @@
 ---
 title: "dplyr_Lab_Assignment"
-author: "Brian Wright"
-date: "2/9/2020"
+author: "Po Wei Tsao"
+date: "9/7/2021"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -16,20 +16,6 @@ library(tidyverse)
 getwd()
 
 ```
-
-################## AND NOW THE EXCITEMENT BEGINS! DPLYR AND TIDYVERSE PRACTICE 
-
-## As a reminder five key dplyr functions that allow you to solve "the vast majority of your data-manipulation
-## challenges" are:
-
-## 1) filter() -- Pick observations by their values
-## 2) arrage() -- Reorder the rows
-## 3) select() -- Pick variables by their names
-## 4) mutate() -- Create new variables with functions of existing variables
-## 5) summarize() -- Collapse many values down to a single summary
-## Bonus: group_by -- we can use this in combination with any of the five to change the scope of
-## each function from operating on the entire dataset to operating on it 
-group-by-group.
 
 
 For this assignment you can use any or all of the datasets I 
@@ -114,6 +100,7 @@ ave_admit(admit_2)
 ```
 
 
+##Dataset 1, question 1
 ```{r}
 # question: Are there differences in rainfall based on seasons?
 
@@ -122,35 +109,18 @@ ave_admit(admit_2)
 #2. calcualate average rainfall
 #3. Order by average rainfall
 
-beaches <- read_csv("DS-3001/data/beaches.csv")
+#line by line
+beaches <- read_csv("ds3001-personal/data/beaches.csv")
 beaches = na.omit(beaches)
-# print(beaches[season == 4])
 seasons <- group_by(beaches, season_name)
 avg = summarize(seasons,ave_rainfall=mean(rainfall))
 avg_rainfall_by_season = arrange(avg, desc(ave_rainfall))
 print(avg_rainfall_by_season)
-
-
-
-
-
 ```
 
 ```{r}
-#Method 2
-beaches <- read_csv("DS-3001/data/beaches.csv")
-beaches = na.omit(beaches)
-# Pipe things
-(avg_rainfall_by_season <- group_by(beaches, season_name)%>%
-  summarize(ave_rainfall=mean(rainfall))%>%
-   arrange(desc(ave_rainfall)))
-
-
-```
-
-```{r}
-
-beaches <- read_csv("DS-3001/data/beaches.csv")
+#function
+beaches <- read_csv("ds3001-personal/data/beaches.csv")
 beaches = na.omit(beaches)
 
 ave_rainfall <- function(beaches){
@@ -163,63 +133,180 @@ avg_rainfall_by_season <- group_by(beaches, season_name)%>%
 ave_rainfall(beaches)
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+## Dataset 1, question 2
 
 ```{r}
+#question: Are there any trends between temperature and season?
 
-beaches <- xx %>% 
-  group_by(season) %>% 
-  sum(as.numeric(rainfall))
+#pseudocode:
+#1. Group by seasons
+#2. calcualate average temperature
+#3. Order by average temperature
 
-sum(xx$rainfall, na.rm = TRUE)
-is.na(xx$rainfall)
+#line by line
+beaches <- read_csv("ds3001-personal/data/beaches.csv")
+beaches = na.omit(beaches)
 
-
-head(xx)
+season_names = group_by(beaches, season_name)
+summary = summarize(season_names, ave_temp=mean(temperature))
+avg_temp_by_season = arrange(summary, desc(ave_temp))
+print(avg_temp_by_season)
 
 ```
 
+```{r}
+#function
+beaches <- read_csv("ds3001-personal/data/beaches.csv")
+beaches = na.omit(beaches)
+
+ave_temp <- function(beaches){
+avg_temp_by_season <- group_by(beaches, season_name)%>%
+  summarize(ave_temp=mean(temperature))%>%
+   arrange(desc(ave_temp))
+  print(avg_temp_by_season)
+}
+
+ave_temp(beaches)
+```
+
+
+##Dataset 2, question 1
+```{r}
+# question: how many times were drivers of each race stopped?
+
+#pseudocode: 
+#1. Group by Driver_Race
+#2. calcualate total stops for each race
+#3. Order by total stops
+
+#line by line
+stops <- read_csv("ds3001-personal/data/officer_Traffic_Stops.csv")
+stops = na.omit(stops)
+
+race = group_by(stops, Driver_Race)
+summary = summarize(race, stop_count=n())
+stop_count = arrange(summary, desc(stop_count))
+print(stop_count)
+
+```
+
+```{r}
+#function
+stops <- read_csv("ds3001-personal/data/officer_Traffic_Stops.csv")
+stops = na.omit(stops)
+stop_count = function(stops){
+(result <- group_by(stops, Driver_Race)%>%
+  summarize(stop_count=n())%>%
+   arrange(desc(stop_count)))
+  print(result)
+}
+
+stop_count(stops)
+```
+
+##Dataset 2, question 2
+```{r}
+# question: how many times was a search conducted for drivers of each race?
+
+#pseudocode: 
+#1. Get all rows where a search was conducted
+#2  Group by Driver_Race
+#2. calcualate total searches for each race
+#3. Order by total searches
+
+#line by line
+stops <- read_csv("ds3001-personal/data/officer_Traffic_Stops.csv")
+stops = na.omit(stops)
+
+search_conducted = subset(stops, Was_a_Search_Conducted == "Yes")
+race = group_by(search_conducted, Driver_Race)
+summary = summarize(race, search_count=n())
+search_count = arrange(summary, desc(search_count))
+print(search_count)
+
+```
+
+```{r}
+
+#function 
+stops <- read_csv("ds3001-personal/data/officer_Traffic_Stops.csv")
+stops = na.omit(stops)
+get_total_searches = function(stops){
+  search_count <- subset(stops, Was_a_Search_Conducted == "Yes")%>%
+    group_by(Driver_Race)%>%
+    summarize(search_count=n())%>%
+    arrange(desc(search_count))
+  print(search_count)
+}
+get_total_searches(stops)
+
+```
+
+##Dataset 3, question 1
+
+```{r}
+#question: Are there differences in average account balance between people with different jobs
+
+#pseudocode
+#1. Group by job
+#2. Calculate average account balance
+#3. Arrange by descending average account balance
+
+#line by line
+bank <- read_csv("ds3001-personal/data/bank.csv")
+bank = na.omit(bank)
+jobs = group_by(bank, job)
+summary = summarize(jobs, avg_acc_balance=mean(balance))
+avg_acc_balance_by_job = arrange(summary, desc(avg_acc_balance))
+print(avg_acc_balance_by_job)
+
+```
+
+```{r}
+#function
+bank <- read_csv("ds3001-personal/data/bank.csv")
+bank = na.omit(bank)
+get_avg_balance_by_job = function(bank){
+  (avg_acc_balance_by_job <- group_by(bank, job)%>%
+  summarize(avg_acc_balance=mean(balance))%>%
+   arrange(desc(avg_acc_balance)))
+  print(avg_acc_balance_by_job)
+}
+get_avg_balance_by_job(bank)
+
+```
+
+
+##Dataset 3, question 2
+
+```{r}
+#question: Are there differences in average account balance between people with different ages
+
+#pseudocode
+#1. Group by age
+#2. Calculate average account balance
+#3. Arrange by descending average account balance
+
+#line_by_line
+bank <- read_csv("ds3001-personal/data/bank.csv")
+bank = na.omit(bank)
+ages = group_by(bank, age=cut(age, breaks=seq(0, 100, by=10)))
+summary = summarize(ages, avg_acc_balance=mean(balance))
+avg_acc_balance_by_age = arrange(summary, desc(avg_acc_balance))
+print(avg_acc_balance_by_age)
+
+```
+
+```{r}
+#function
+bank <- read_csv("ds3001-personal/data/bank.csv")
+bank = na.omit(bank)
+get_avg_balance_by_age = function(bank){
+(avg_acc_balance_by_age <- group_by(bank, age=cut(age, breaks=seq(0, 100, by=10)))%>%
+  summarize(avg_acc_balance=mean(balance))%>%
+   arrange(desc(avg_acc_balance)))
+  print(avg_acc_balance_by_age)
+}
+get_avg_balance_by_age(bank)
+
+```
