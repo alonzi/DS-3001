@@ -1,0 +1,242 @@
+---
+title: "lab5"
+author: "Po Wei Tsao"
+date: "9/29/2021"
+output:
+  html_document:
+    toc: TRUE
+    theme: journal
+    toc_float: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(psych)
+library(mltools)
+library(data.table)
+library(caret)
+```
+[caret documentation](http://topepo.github.io/caret/index.html)
+
+#Dataset 1
+## Phase I
+
+```{r}
+#Working to developed a model than can predict student performance in standardized tests. 
+
+#Assuming we are able to optimizing and make recommendations how does this translate into a business context? 
+
+# Inference versus Prediction 
+
+# Independent Business Metric - Assuming that higher scores results in better performance in college, can we predict which students will perform the best?   
+
+```
+
+## Phase II 
+
+### Scale/Center/Normalizing
+
+```{r}
+student_perf <- read_csv("data/StudentsPerformance.csv")
+
+student_perf["total_score"] = student_perf["math score"] + student_perf["reading score"] + student_perf["writing score"]
+
+(student_perf$total_score_sc <- scale(student_perf["total_score"], center = TRUE, scale = TRUE))#center and standardized 
+
+drops <- c("math score", "reading score", "writing score", "total_score")
+student_perf = student_perf[ , !(names(student_perf) %in% drops)]
+
+(column_index <- tibble(colnames(student_perf)))
+
+#Looks like columns 2,3,12 and 13 need to be converted to factors
+student_perf[,c(1, 2, 3, 4, 5)] <- lapply(student_perf[,c(1, 2, 3, 4, 5)], as.factor)
+
+View(student_perf)
+
+
+```
+
+
+### One-hot Encoding 
+[ML Tools One-Hot Overview](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot)
+
+```{r}
+# Next let's one-hot encode those factor variables/character 
+
+?one_hot
+
+student_perf_1h <- one_hot(as.data.table(student_perf),cols = "auto",sparsifyNAs = TRUE,naCols = TRUE,dropCols = TRUE,dropUnusedLevels = TRUE) 
+View(student_perf_1h)
+```
+
+
+### Baseline/Prevalance 
+
+```{r}
+#Essential the target to which we are trying to better with our model. 
+describe(student_perf_1h$total_score_sc)
+(box <- boxplot(student_perf_1h$total_score_sc, horizontal = TRUE)) 
+box$stats
+fivenum(student_perf$total_score_sc)
+?fivenum#thanks Tukey!
+
+#added this a predictor versus replacing the numeric version
+(student_perf_1h$total_score_sc_f <- cut(student_perf_1h$total_score_sc,c(-2.69597072,0.69409930,2.26054545),labels = c(0,1)))
+student_perf_1h = student_perf_1h[complete.cases(student_perf_1h),]
+
+#So no let's check the prevalence 
+(prevalence <- table(student_perf_1h$total_score_sc_f)[[2]]/length(student_perf_1h$total_score_sc_f))
+
+prevalence
+
+```
+
+
+### Initial Model Building: Decision Tree Style  
+
+```{r}
+# Training, Evaluation, Tune, Evaluation, Test, Evaluation
+# Divide up our data into three parts, Training, Tuning, and Test
+
+#There is not a easy way to create 3 partitions using the createDataPartitions
+
+#so we are going to use it twice. Mostly because we want to stratify on the variable we are working to predict. What does that mean?  
+
+#clean up our dataset a bit by dropping the original ranking variable and the cereal name which we can't really use. 
+
+student_perf_dt <- student_perf_1h[,-c("total_score_sc")]
+# view(student_perf_dt)
+
+
+student_perf_part_index_1 <- caret::createDataPartition(student_perf_dt$total_score_sc_f,
+                                           times=1,
+                                           p = 0.70,
+                                           groups=1,
+                                           list=FALSE)
+# View(student_perf_part_index_1)
+dim(student_perf_dt)
+
+student_perf_train <- student_perf_dt[student_perf_part_index_1,]
+student_perf_tune_and_test <- student_perf_dt[-student_perf_part_index_1, ]
+
+#The we need to use the function again to create the tuning set 
+
+student_perf_tune_and_test_index <- createDataPartition(student_perf_tune_and_test$total_score_sc_f,
+                                           p = .5,
+                                           list = FALSE,
+                                           times = 1)
+
+student_perf_tune <- student_perf_tune_and_test[student_perf_tune_and_test_index, ]
+student_perf_test <- student_perf_tune_and_test[-student_perf_tune_and_test_index, ]
+
+
+dim(student_perf_train)
+dim(student_perf_tune)
+dim(student_perf_test)
+
+
+```
+
+
+#### Using Caret package to fit a C5.0 version of a decision tree
+Setting up the cross validation
+[Caret_Documentation](http://topepo.github.io/caret/train-models-by-tag.html#Tree_Based_Model)
+```{r}
+#Cross validation process 
+
+fitControl <- trainControl(method = "repeatedcv",
+                          number = 10,
+                          repeats = 5, 
+                          returnResamp="all") 
+
+# number - number of folds
+# repeats - number of times the CV is repeated, here it's 5 take the average of
+# those 5 repeats
+
+
+# Choose the features and classes
+
+```
+
+#### Training and Evaluation 
+
+```{r}
+features <- student_perf_train[,-"total_score_sc_f"]
+# view(features)
+
+target <- student_perf_train[,"total_score_sc_f"]
+
+str(target)
+
+set.seed(1984)
+student_perf_mdl <- train(x=features,
+                y=target$total_score_sc_f,
+                trControl=fitControl,
+                method="C5.0",
+                verbose=TRUE)
+
+student_perf_mdl
+
+```
+
+Tune and Evaluation 
+```{r}
+student_perf_predict = predict(student_perf_mdl, student_perf_tune,type= "raw")
+
+confusionMatrix(as.factor(student_perf_predict), 
+                as.factor(student_perf_tune$total_score_sc_f), 
+                dnn=c("Prediction", "Actual"), 
+                mode = "sens_spec")
+
+varImp(student_perf_mdl)
+
+plot(student_perf_mdl)
+
+
+grid <- expand.grid(.winnow = c(TRUE,FALSE), 
+                    .trials=c(20,30,40), 
+                    .model=c("tree","rules"))
+set.seed(1984)
+student_perf_mdl_tune <- train(x=features,
+                y=target$total_score_sc_f,
+                tuneGrid=grid,
+                trControl=fitControl,
+                method="C5.0",
+                verbose=TRUE)
+
+student_perf_mdl_tune
+student_perf_mdl
+
+plot(student_perf_mdl_tune)
+
+# Want to evaluation again with the tune data using the new model 
+
+student_perf_predict_tune = predict(student_perf_mdl_tune,student_perf_tune,type= "raw")
+
+confusionMatrix(as.factor(student_perf_predict_tune), 
+                as.factor(student_perf_tune$total_score_sc_f), 
+                dnn=c("Prediction", "Actual"), 
+                mode = "sens_spec")
+
+
+```
+
+Test 
+
+```{r}
+student_perf_predict_test = predict(student_perf_mdl_tune,student_perf_test,type= "raw")
+
+confusionMatrix(as.factor(student_perf_predict_test), 
+                as.factor(student_perf_tune$total_score_sc_f), 
+                dnn=c("Prediction", "Actual"), 
+                mode = "sens_spec")
+
+```
+
+
