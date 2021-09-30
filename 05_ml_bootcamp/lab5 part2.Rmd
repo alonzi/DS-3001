@@ -1,0 +1,248 @@
+---
+title: "lab5"
+author: "Po Wei Tsao"
+date: "9/29/2021"
+output:
+  html_document:
+    toc: TRUE
+    theme: journal
+    toc_float: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(psych)
+library(mltools)
+library(data.table)
+library(caret)
+```
+[caret documentation](http://topepo.github.io/caret/index.html)
+
+#Dataset 1
+## Phase I
+
+```{r}
+#Working to developed a model than can predict graduates salary. 
+
+#Assuming we are able to optimizing and make recommendations how does this translate into a business context? 
+
+# Inference versus Prediction 
+
+# Independent Business Metric - Assuming that a higher salary means more donations to the school, can we predict which graduates will donate the most to the school?
+
+```
+
+## Phase II 
+
+### Scale/Center/Normalizing
+
+```{r}
+placements <- read_csv("data/Placement_Data_Full_Class.csv")
+placements = placements[complete.cases(placements),]
+
+(placements$ssc_p_sc <- scale(placements["ssc_p"], center = TRUE, scale = TRUE))#center and standardized 
+(placements$hsc_p_sc <- scale(placements["hsc_p"], center = TRUE, scale = TRUE))#center and standardized 
+(placements$degree_p_sc <- scale(placements["degree_p"], center = TRUE, scale = TRUE))#center and standardized 
+(placements$etest_p_sc <- scale(placements["etest_p"], center = TRUE, scale = TRUE))#center and standardized 
+(placements$mba_p_sc <- scale(placements["mba_p"], center = TRUE, scale = TRUE))#center and standardized 
+(placements$salary_sc <- scale(placements["salary"], center = TRUE, scale = TRUE))#center and standardized 
+
+
+drops <- c("sl_no", "ssc_p", "hsc_p", "degree_p", "etest_p", "mba_p", "salary", "workex", "status", "salary")
+placements = placements[ , !(names(placements) %in% drops)]
+# View(placements)
+
+#Looks like columns 2,3,12 and 13 need to be converted to factors
+placements[,c(1, 2, 3, 4, 5, 6)] <- lapply(placements[,c(1, 2, 3, 4, 5, 6)], as.factor)
+
+# View(placements)
+
+
+```
+
+
+### One-hot Encoding 
+[ML Tools One-Hot Overview](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot)
+
+```{r}
+# Next let's one-hot encode those factor variables/character 
+
+?one_hot
+
+placements_1h <- one_hot(as.data.table(placements),cols = "auto",sparsifyNAs = TRUE,naCols = TRUE,dropCols = TRUE,dropUnusedLevels = TRUE) 
+View(placements_1h)
+```
+
+
+### Baseline/Prevalance 
+
+```{r}
+#Essential the target to which we are trying to better with our model. 
+describe(placements_1h$salary_sc)
+(box <- boxplot(placements_1h$salary_sc, horizontal = TRUE)) 
+box$stats
+fivenum(placements$salary_sc)
+
+# ?fivenum#thanks Tukey!
+
+#added this a predictor versus replacing the numeric version
+(placements_1h$salary_sc_f <- cut(placements_1h$salary_sc,c(-0.9486, -0.2531142, 6.9694238),labels = c(0,1)))
+placements_1h = placements_1h[complete.cases(placements_1h),]
+
+#So no let's check the prevalence 
+(prevalence <- table(placements_1h$salary_sc_f)[[2]]/length(placements_1h$salary_sc_f))
+
+prevalence
+# View(placements_1h)
+```
+
+
+### Initial Model Building: Decision Tree Style  
+
+```{r}
+# Training, Evaluation, Tune, Evaluation, Test, Evaluation
+# Divide up our data into three parts, Training, Tuning, and Test
+
+#There is not a easy way to create 3 partitions using the createDataPartitions
+
+#so we are going to use it twice. Mostly because we want to stratify on the variable we are working to predict. What does that mean?  
+
+#clean up our dataset a bit by dropping the original ranking variable and the cereal name which we can't really use. 
+
+placements_dt <- placements_1h[,-c("salary_sc")]
+# view(placements_dt)
+
+
+placements_part_index_1 <- caret::createDataPartition(placements_dt$salary_sc_f,
+                                           times=1,
+                                           p = 0.70,
+                                           groups=1,
+                                           list=FALSE)
+# View(placements_part_index_1)
+dim(placements_dt)
+
+placements_train <- placements_dt[placements_part_index_1,]
+placements_tune_and_test <- placements_dt[-placements_part_index_1, ]
+
+#The we need to use the function again to create the tuning set 
+
+placements_tune_and_test_index <- createDataPartition(placements_tune_and_test$salary_sc_f,
+                                           p = .5,
+                                           list = FALSE,
+                                           times = 1)
+
+placements_tune <- placements_tune_and_test[placements_tune_and_test_index, ]
+placements_test <- placements_tune_and_test[-placements_tune_and_test_index, ]
+
+
+dim(placements_train)
+dim(placements_tune)
+dim(placements_test)
+
+
+```
+
+
+#### Using Caret package to fit a C5.0 version of a decision tree
+Setting up the cross validation
+[Caret_Documentation](http://topepo.github.io/caret/train-models-by-tag.html#Tree_Based_Model)
+```{r}
+#Cross validation process 
+
+fitControl <- trainControl(method = "repeatedcv",
+                          number = 10,
+                          repeats = 5, 
+                          returnResamp="all") 
+
+# number - number of folds
+# repeats - number of times the CV is repeated, here it's 5 take the average of
+# those 5 repeats
+
+
+# Choose the features and classes
+
+```
+
+#### Training and Evaluation 
+
+
+```{r}
+features <- placements_train[,-"salary_sc_f"]
+# view(features)
+
+target <- placements_train[,"salary_sc_f"]
+
+str(target)
+
+set.seed(1984)
+placements_mdl <- train(x=features,
+                y=target$salary_sc_f,
+                trControl=fitControl,
+                method="C5.0",
+                verbose=TRUE)
+
+placements_mdl
+
+```
+
+Tune and Evaluation 
+```{r}
+placements_predict = predict(placements_mdl, placements_tune,type= "raw")
+
+confusionMatrix(as.factor(placements_predict), 
+                as.factor(placements_tune$salary_sc_f), 
+                dnn=c("Prediction", "Actual"), 
+                mode = "sens_spec")
+
+varImp(placements_mdl)
+
+plot(placements_mdl)
+
+
+grid <- expand.grid(.winnow = c(TRUE,FALSE), 
+                    .trials=c(20,30,40), 
+                    .model=c("tree","rules"))
+set.seed(1984)
+placements_mdl_tune <- train(x=features,
+                y=target$salary_sc_f,
+                tuneGrid=grid,
+                trControl=fitControl,
+                method="C5.0",
+                verbose=TRUE)
+
+placements_mdl_tune
+placements_mdl
+
+plot(placements_mdl_tune)
+
+# Want to evaluation again with the tune data using the new model 
+
+placements_predict_tune = predict(placements_mdl_tune,placements_tune,type= "raw")
+
+confusionMatrix(as.factor(placements_predict_tune), 
+                as.factor(placements_tune$salary_sc_f), 
+                dnn=c("Prediction", "Actual"), 
+                mode = "sens_spec")
+
+
+```
+
+Test 
+
+```{r}
+placements_predict_test = predict(placements_mdl_tune,placements_test,type= "raw")
+
+confusionMatrix(as.factor(placements_predict_test), 
+                as.factor(placements_tune$salary_sc_f), 
+                dnn=c("Prediction", "Actual"), 
+                mode = "sens_spec")
+
+```
+
+
