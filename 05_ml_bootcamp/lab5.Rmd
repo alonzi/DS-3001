@@ -57,7 +57,7 @@ student_perf = student_perf[ , !(names(student_perf) %in% drops)]
 #Looks like columns 2,3,12 and 13 need to be converted to factors
 student_perf[,c(1, 2, 3, 4, 5)] <- lapply(student_perf[,c(1, 2, 3, 4, 5)], as.factor)
 
-View(student_perf)
+# View(student_perf)
 
 
 ```
@@ -69,10 +69,10 @@ View(student_perf)
 ```{r}
 # Next let's one-hot encode those factor variables/character 
 
-?one_hot
+# ?one_hot
 
 student_perf_1h <- one_hot(as.data.table(student_perf),cols = "auto",sparsifyNAs = TRUE,naCols = TRUE,dropCols = TRUE,dropUnusedLevels = TRUE) 
-View(student_perf_1h)
+# View(student_perf_1h)
 ```
 
 
@@ -84,7 +84,7 @@ describe(student_perf_1h$total_score_sc)
 (box <- boxplot(student_perf_1h$total_score_sc, horizontal = TRUE)) 
 box$stats
 fivenum(student_perf$total_score_sc)
-?fivenum#thanks Tukey!
+# ?fivenum#thanks Tukey!
 
 #added this a predictor versus replacing the numeric version
 (student_perf_1h$total_score_sc_f <- cut(student_perf_1h$total_score_sc,c(-2.69597072,0.69409930,2.26054545),labels = c(0,1)))
@@ -234,6 +234,454 @@ student_perf_predict_test = predict(student_perf_mdl_tune,student_perf_test,type
 
 confusionMatrix(as.factor(student_perf_predict_test), 
                 as.factor(student_perf_tune$total_score_sc_f), 
+                dnn=c("Prediction", "Actual"), 
+                mode = "sens_spec")
+
+```
+
+#Dataset 2
+## Phase I
+
+```{r}
+#Working to developed a model than can predict graduates salary. 
+
+#Assuming we are able to optimizing and make recommendations how does this translate into a business context? 
+
+# Inference versus Prediction 
+
+# Independent Business Metric - Assuming that a higher salary means more donations to the school, can we predict which graduates will donate the most to the school?
+
+```
+
+## Phase II 
+
+### Scale/Center/Normalizing
+
+```{r}
+placements <- read_csv("data/Placement_Data_Full_Class.csv")
+placements = placements[complete.cases(placements),]
+
+(placements$ssc_p_sc <- scale(placements["ssc_p"], center = TRUE, scale = TRUE))#center and standardized 
+(placements$hsc_p_sc <- scale(placements["hsc_p"], center = TRUE, scale = TRUE))#center and standardized 
+(placements$degree_p_sc <- scale(placements["degree_p"], center = TRUE, scale = TRUE))#center and standardized 
+(placements$etest_p_sc <- scale(placements["etest_p"], center = TRUE, scale = TRUE))#center and standardized 
+(placements$mba_p_sc <- scale(placements["mba_p"], center = TRUE, scale = TRUE))#center and standardized 
+(placements$salary_sc <- scale(placements["salary"], center = TRUE, scale = TRUE))#center and standardized 
+
+
+drops <- c("sl_no", "ssc_p", "hsc_p", "degree_p", "etest_p", "mba_p", "salary", "workex", "status", "salary")
+placements = placements[ , !(names(placements) %in% drops)]
+# View(placements)
+
+#Looks like columns 2,3,12 and 13 need to be converted to factors
+placements[,c(1, 2, 3, 4, 5, 6)] <- lapply(placements[,c(1, 2, 3, 4, 5, 6)], as.factor)
+
+# View(placements)
+
+
+```
+
+
+### One-hot Encoding 
+[ML Tools One-Hot Overview](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot)
+
+```{r}
+# Next let's one-hot encode those factor variables/character 
+
+# ?one_hot
+
+placements_1h <- one_hot(as.data.table(placements),cols = "auto",sparsifyNAs = TRUE,naCols = TRUE,dropCols = TRUE,dropUnusedLevels = TRUE) 
+# View(placements_1h)
+```
+
+
+### Baseline/Prevalance 
+
+```{r}
+#Essential the target to which we are trying to better with our model. 
+describe(placements_1h$salary_sc)
+(box <- boxplot(placements_1h$salary_sc, horizontal = TRUE)) 
+box$stats
+fivenum(placements$salary_sc)
+
+# ?fivenum#thanks Tukey!
+
+#added this a predictor versus replacing the numeric version
+(placements_1h$salary_sc_f <- cut(placements_1h$salary_sc,c(-0.9486, -0.2531142, 6.9694238),labels = c(0,1)))
+placements_1h = placements_1h[complete.cases(placements_1h),]
+
+#So no let's check the prevalence 
+(prevalence <- table(placements_1h$salary_sc_f)[[2]]/length(placements_1h$salary_sc_f))
+
+prevalence
+# View(placements_1h)
+```
+
+
+### Initial Model Building: Decision Tree Style  
+
+```{r}
+# Training, Evaluation, Tune, Evaluation, Test, Evaluation
+# Divide up our data into three parts, Training, Tuning, and Test
+
+#There is not a easy way to create 3 partitions using the createDataPartitions
+
+#so we are going to use it twice. Mostly because we want to stratify on the variable we are working to predict. What does that mean?  
+
+#clean up our dataset a bit by dropping the original ranking variable and the cereal name which we can't really use. 
+
+placements_dt <- placements_1h[,-c("salary_sc")]
+# view(placements_dt)
+
+
+placements_part_index_1 <- caret::createDataPartition(placements_dt$salary_sc_f,
+                                           times=1,
+                                           p = 0.70,
+                                           groups=1,
+                                           list=FALSE)
+# View(placements_part_index_1)
+dim(placements_dt)
+
+placements_train <- placements_dt[placements_part_index_1,]
+placements_tune_and_test <- placements_dt[-placements_part_index_1, ]
+
+#The we need to use the function again to create the tuning set 
+
+placements_tune_and_test_index <- createDataPartition(placements_tune_and_test$salary_sc_f,
+                                           p = .5,
+                                           list = FALSE,
+                                           times = 1)
+
+placements_tune <- placements_tune_and_test[placements_tune_and_test_index, ]
+placements_test <- placements_tune_and_test[-placements_tune_and_test_index, ]
+
+
+dim(placements_train)
+dim(placements_tune)
+dim(placements_test)
+
+
+```
+
+
+#### Using Caret package to fit a C5.0 version of a decision tree
+Setting up the cross validation
+[Caret_Documentation](http://topepo.github.io/caret/train-models-by-tag.html#Tree_Based_Model)
+```{r}
+#Cross validation process 
+
+fitControl <- trainControl(method = "repeatedcv",
+                          number = 10,
+                          repeats = 5, 
+                          returnResamp="all") 
+
+# number - number of folds
+# repeats - number of times the CV is repeated, here it's 5 take the average of
+# those 5 repeats
+
+
+# Choose the features and classes
+
+```
+
+#### Training and Evaluation 
+
+
+```{r}
+features <- placements_train[,-"salary_sc_f"]
+# view(features)
+
+target <- placements_train[,"salary_sc_f"]
+
+str(target)
+
+set.seed(1984)
+placements_mdl <- train(x=features,
+                y=target$salary_sc_f,
+                trControl=fitControl,
+                method="C5.0",
+                verbose=TRUE)
+
+placements_mdl
+
+```
+
+Tune and Evaluation 
+```{r}
+placements_predict = predict(placements_mdl, placements_tune,type= "raw")
+
+confusionMatrix(as.factor(placements_predict), 
+                as.factor(placements_tune$salary_sc_f), 
+                dnn=c("Prediction", "Actual"), 
+                mode = "sens_spec")
+
+varImp(placements_mdl)
+
+plot(placements_mdl)
+
+
+grid <- expand.grid(.winnow = c(TRUE,FALSE), 
+                    .trials=c(20,30,40), 
+                    .model=c("tree","rules"))
+set.seed(1984)
+placements_mdl_tune <- train(x=features,
+                y=target$salary_sc_f,
+                tuneGrid=grid,
+                trControl=fitControl,
+                method="C5.0",
+                verbose=TRUE)
+
+placements_mdl_tune
+placements_mdl
+
+plot(placements_mdl_tune)
+
+# Want to evaluation again with the tune data using the new model 
+
+placements_predict_tune = predict(placements_mdl_tune,placements_tune,type= "raw")
+
+confusionMatrix(as.factor(placements_predict_tune), 
+                as.factor(placements_tune$salary_sc_f), 
+                dnn=c("Prediction", "Actual"), 
+                mode = "sens_spec")
+
+
+```
+
+Test 
+
+```{r}
+placements_predict_test = predict(placements_mdl_tune,placements_test,type= "raw")
+
+confusionMatrix(as.factor(placements_predict_test), 
+                as.factor(placements_tune$salary_sc_f), 
+                dnn=c("Prediction", "Actual"), 
+                mode = "sens_spec")
+
+```
+
+#Dataset 3
+## Phase I
+
+```{r}
+#Working to developed a model than can predict which colleges will give the highest average grant aid. 
+
+#Assuming we are able to optimizing and make recommendations how does this translate into a business context? 
+
+# Inference versus Prediction 
+
+# Independent Business Metric - Assuming that a high average grant aid will translate into higher grants given to an individual student, can we predict schools are best for those who are dependent on grant aid?
+
+```
+
+## Phase II 
+
+### Scale/Center/Normalizing
+
+```{r}
+colleges <- read_csv("data/ForbesAmericasTopColleges2019.csv")
+# View(colleges)
+colleges = colleges[complete.cases(colleges),]
+
+
+colleges["avg_aid"] = colleges["Average Grant Aid"]
+drops <- c("Rank", "Name", "City", "State", "Website", "Average Grant Aid")
+colleges = colleges[ , !(names(colleges) %in% drops)]
+# View(colleges)
+normalize <- function(x){
+ (x - min(x)) / (max(x) - min(x))
+}
+
+abc <- names(select_if(colleges, is.numeric))# select function to find the numeric variables 
+abc
+#Use lapply to normalize the numeric values 
+
+colleges[abc] <- as_tibble(lapply(colleges[abc], normalize))
+
+
+# View(colleges)
+
+#Looks like columns 2,3,12 and 13 need to be converted to factors
+colleges[,c(1)] <- lapply(colleges[,c(1)], as.factor)
+
+# View(colleges)
+
+
+```
+
+
+### One-hot Encoding 
+[ML Tools One-Hot Overview](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot)
+
+```{r}
+# Next let's one-hot encode those factor variables/character 
+
+colleges_1h <- one_hot(as.data.table(colleges),cols = "auto",sparsifyNAs = TRUE,naCols = TRUE,dropCols = TRUE,dropUnusedLevels = TRUE) 
+# View(colleges_1h)
+```
+
+
+### Baseline/Prevalance 
+
+```{r}
+#Essential the target to which we are trying to better with our model. 
+describe(colleges_1h$avg_aid)
+(box <- boxplot(colleges_1h$avg_aid, horizontal = TRUE)) 
+box$stats
+fivenum(colleges$avg_aid)
+
+# ?fivenum#thanks Tukey!
+
+#added this a predictor versus replacing the numeric version
+(colleges_1h$avg_aid_f <- cut(colleges_1h$avg_aid,c(0, 0.48, 1),labels = c(0,1)))
+colleges_1h = colleges_1h[complete.cases(colleges_1h),]
+
+#So no let's check the prevalence 
+(prevalence <- table(colleges_1h$avg_aid_f)[[2]]/length(colleges_1h$avg_aid_f))
+
+prevalence
+# View(colleges_1h)
+```
+
+
+### Initial Model Building: Decision Tree Style  
+
+```{r}
+# Training, Evaluation, Tune, Evaluation, Test, Evaluation
+# Divide up our data into three parts, Training, Tuning, and Test
+
+#There is not a easy way to create 3 partitions using the createDataPartitions
+
+#so we are going to use it twice. Mostly because we want to stratify on the variable we are working to predict. What does that mean?  
+
+#clean up our dataset a bit by dropping the original ranking variable and the cereal name which we can't really use. 
+
+colleges_dt <- colleges_1h[,-c("avg_aid")]
+# view(colleges_dt)
+
+
+colleges_part_index_1 <- caret::createDataPartition(colleges_dt$avg_aid_f,
+                                           times=1,
+                                           p = 0.70,
+                                           groups=1,
+                                           list=FALSE)
+# View(colleges_part_index_1)
+dim(colleges_dt)
+
+colleges_train <- colleges_dt[colleges_part_index_1,]
+colleges_tune_and_test <- colleges_dt[-colleges_part_index_1, ]
+
+#The we need to use the function again to create the tuning set 
+
+colleges_tune_and_test_index <- createDataPartition(colleges_tune_and_test$avg_aid_f,
+                                           p = .5,
+                                           list = FALSE,
+                                           times = 1)
+
+colleges_tune <- colleges_tune_and_test[colleges_tune_and_test_index, ]
+colleges_test <- colleges_tune_and_test[-colleges_tune_and_test_index, ]
+
+
+dim(colleges_train)
+dim(colleges_tune)
+dim(colleges_test)
+
+
+```
+
+
+#### Using Caret package to fit a C5.0 version of a decision tree
+Setting up the cross validation
+[Caret_Documentation](http://topepo.github.io/caret/train-models-by-tag.html#Tree_Based_Model)
+```{r}
+#Cross validation process 
+
+fitControl <- trainControl(method = "repeatedcv",
+                          number = 10,
+                          repeats = 5, 
+                          returnResamp="all") 
+
+# number - number of folds
+# repeats - number of times the CV is repeated, here it's 5 take the average of
+# those 5 repeats
+
+
+# Choose the features and classes
+
+```
+
+#### Training and Evaluation 
+
+
+```{r}
+features <- colleges_train[,-"avg_aid_f"]
+# view(features)
+
+target <- colleges_train[,"avg_aid_f"]
+
+str(target)
+
+set.seed(1984)
+colleges_mdl <- train(x=features,
+                y=target$avg_aid_f,
+                trControl=fitControl,
+                method="C5.0",
+                verbose=TRUE)
+
+colleges_mdl
+
+```
+
+Tune and Evaluation 
+```{r}
+colleges_predict = predict(colleges_mdl, colleges_tune,type= "raw")
+
+confusionMatrix(as.factor(colleges_predict), 
+                as.factor(colleges_tune$avg_aid_f), 
+                dnn=c("Prediction", "Actual"), 
+                mode = "sens_spec")
+
+varImp(colleges_mdl)
+
+plot(colleges_mdl)
+
+
+grid <- expand.grid(.winnow = c(TRUE,FALSE), 
+                    .trials=c(20,30,40), 
+                    .model=c("tree","rules"))
+set.seed(1984)
+colleges_mdl_tune <- train(x=features,
+                y=target$avg_aid_f,
+                tuneGrid=grid,
+                trControl=fitControl,
+                method="C5.0",
+                verbose=TRUE)
+
+colleges_mdl_tune
+colleges_mdl
+
+plot(colleges_mdl_tune)
+
+# Want to evaluation again with the tune data using the new model 
+
+colleges_predict_tune = predict(colleges_mdl_tune,colleges_tune,type= "raw")
+
+confusionMatrix(as.factor(colleges_predict_tune), 
+                as.factor(colleges_tune$avg_aid_f), 
+                dnn=c("Prediction", "Actual"), 
+                mode = "sens_spec")
+
+
+```
+
+Test 
+
+```{r}
+colleges_predict_test = predict(colleges_mdl_tune,colleges_test,type= "raw")
+avg_aid = colleges_tune$avg_aid_f[2:length(colleges_tune$avg_aid_f)]
+
+confusionMatrix(as.factor(colleges_predict_test), 
+                as.factor(avg_aid), 
                 dnn=c("Prediction", "Actual"), 
                 mode = "sens_spec")
 
