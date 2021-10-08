@@ -19,14 +19,13 @@ library(NbClust)
 
 #### Slide 22: Step 1: load packages and data ####
 
-house_votes_Dem = read_csv("data/house_votes_Dem.csv")
-
+house_votes_Dem = read.csv("data/house_votes_Dem.csv")
 # What does the data look like?
 View(house_votes_Dem)
 str(house_votes_Dem)
 table(house_votes_Dem$party.labels)
 
-house_votes_Rep = read_csv("data/house_votes_Rep.csv")
+house_votes_Rep = read.csv("data/house_votes_Rep.csv")
 
 table(house_votes_Rep$party.labels)
 View(house_votes_Rep)
@@ -37,19 +36,26 @@ View(house_votes_Rep)
 # Define the columns to be clustered by sub-setting the data.
 # Placing the vector of columns after the comma inside the 
 # brackets tells R that you are selecting columns.
+#! we only want numeric data (continuous vars)
 clust_data_Dem = house_votes_Dem[, c("aye", "nay", "other")]
 View(clust_data_Dem)
 
 # Run an algorithm with 2 centers.
 # kmeans uses a different starting data point each time it runs.
 # Make the results reproducible with the set.seed() function.
+#! running K-means. We don't need to normalize it because the columns are on the same scale
+    #! it's all "vote counts"
 set.seed(1)
 kmeans_obj_Dem = kmeans(clust_data_Dem, centers = 2, 
                         algorithm = "Lloyd")   #<- there are several ways of implementing k-means, see the help menu for a full list
-
+#! Lloyd = euclidean distance for clustering
 # What did the kmeans function produce, 
 # what does the new variable kmeans_obj contain?
 kmeans_obj_Dem
+#! the output of this: 
+    #!clustering vector: each row is classified as 1 or 2
+    #!between_SS / total_SS = average variance of each point to its centers (??)
+
 
 # View the results of each output of the kmeans function.
 head(kmeans_obj_Dem)
@@ -137,6 +143,7 @@ house_votes_color_Dem$clusters <- (party_clusters_Dem)
 
 str(house_votes_color_Dem)
 
+#! replacing special characters in last names
 house_votes_color_Dem$Last.Name <- gsub("[^[:alnum:]]", "", house_votes_color_Dem$Last.Name)
 
 # Use plotly to do a 3d imaging 
@@ -171,6 +178,7 @@ num_Dem = kmeans_obj_Dem$betweenss
 denom_Dem = kmeans_obj_Dem$totss
 
 # Variance accounted for by clusters.
+#! betweenSS / totss
 (var_exp_Dem = num_Dem / denom_Dem)
 
 
@@ -286,7 +294,7 @@ ggplot(freq_k_Dem,
        title = "Cluster Analysis")
 
 #===============================================================================
-
+#! you can use the clusters as a classification and try to use it in another ML algorithm
 # Now we are going to build a simple decision tree using the clusters as a feature
 
 # reminder this is our model, using 3 clusters 
@@ -345,6 +353,7 @@ party_dt
 varImp(party_dt)
 
 # Let's predict and see how we did. 
+#! gives us the accurancy of the features.
 dt_predict_1 = predict(party_dt,tune,type= "raw")
 
 confusionMatrix(as.factor(dt_predict_1), 
