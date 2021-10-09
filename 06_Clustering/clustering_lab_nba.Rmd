@@ -35,11 +35,11 @@ View(nba_salaries)
 
 ```{r}
 #Select the variables to be included in the cluster 
-cols = c("FG.", "eFG.", "FT.", "TRB", "AST", "STL", "BLK", "TOV", "PTS")
+cols = c("Player", "FG.", "eFG.", "FT.", "TRB", "AST", "STL", "BLK", "TOV", "PTS")
 clust_data_nba = nba_data[, cols]
 clust_data_nba = clust_data_nba[complete.cases(clust_data_nba),]
 
-View(clust_data_nba)
+# View(clust_data_nba)
 
 standardize = function(data_in){
   #standardizing numeric data
@@ -47,42 +47,105 @@ standardize = function(data_in){
   new_data
 
 }
-clust_data_nba[cols] <- as_tibble(lapply(clust_data_nba[cols], standardize))
+numeric_cols = names(select_if(clust_data_nba, is.numeric))
+clust_data_nba[numeric_cols] <- as_tibble(lapply(clust_data_nba[numeric_cols], standardize))
 # standardized_nba_clust_data = do.call(rbind.data.frame, lapply(clust_data_nba, standardize))
 View(clust_data_nba)
 
 ```
 
-```{r}
-#Run the clustering algo with 2 centers
-```
 
 ```{r}
-#View the results
-```
+#Evaluate several different number of clusters
+explained_variance = function(data_in, k){
+  
+  # Running the kmeans algorithm.
+  set.seed(1)
+  kmeans_obj = kmeans(data_in, centers = k, algorithm = "Lloyd", iter.max = 30)
+  
+  # Variance accounted for by clusters:
+  # var_exp = intercluster variance / total variance
+  var_exp = kmeans_obj$betweenss / kmeans_obj$totss
+  var_exp  
+}
 
-```{r}
-#Visualize the output
-```
+player_names = clust_data_nba[0:1]
+str(player_names)
 
-```{r}
-#Evaluate the quality of the clustering 
-```
+drops = c("Player")
+clust_data_nba = clust_data_nba[ , !(names(clust_data_nba) %in% drops)]
 
-```{r}
-#Use the function we created to evaluate several different number of clusters
+# View(clust_data_nba)
+
+#Apply my function to the dataframe we have
+explained_var_nba = sapply(1:10, explained_variance, data_in = clust_data_nba)
+
+# View(explained_var_nba)
+
+
+# Data for ggplot2.
+# elbow_data_nba = data.frame(k = 1:10, explained_var_nba)
+# View(explained_var_nba)
+elbow_data_nba = data.frame(k = 1:10, explained_var_nba)
+View(elbow_data_nba)
 ```
 
 ```{r}
 #Create a elbow chart of the output 
+# View(explained_var_nba)
+# View(explained_var_Dem)
+# 
+# View(elbow_data_Dem)
+# View(elbow_data_nba)
+
+View(elbow_data_nba)
+ggplot(elbow_data_nba, 
+       aes(x = k,  
+           y = explained_var_nba)) + 
+  geom_point(size = 4) +           #<- sets the size of the data points
+  geom_line(size = 1) +            #<- sets the thickness of the line
+  xlab('k') + 
+  ylab('Inter-cluster Variance / Total Variance') + 
+  theme_light()
+
+# With the elbow method, it looks like 2 clusters is a good choice
 ```
 
 ```{r}
 #Use NbClust to select a number of clusters
+library(NbClust)
+
+# Run NbClust.
+(nbclust_obj_nba = NbClust(data = clust_data_nba, method = "kmeans"))
+
+# View the output of NbClust.
+nbclust_obj_Dem
+
+# View the output that shows the number of clusters each method recommends.
+View(nbclust_obj_Dem$Best.nc)
 ```
 
 ```{r}
-#Display the results visually 
+#Display the results visually
+freq_k_Dem = nbclust_obj_Dem$Best.nc[1,]
+freq_k_Dem = data.frame(freq_k_Dem)
+View(freq_k_Dem)
+
+# Check the maximum number of clusters suggested.
+max(freq_k_Dem)
+
+#essentially resets the plot viewer back to default
+dev.off()
+
+# Plot as a histogram.
+ggplot(freq_k_Dem,
+       aes(x = freq_k_Dem)) +
+  geom_bar() +
+  scale_x_continuous(breaks = seq(0, 15, by = 1)) +
+  scale_y_continuous(breaks = seq(0, 12, by = 1)) +
+  labs(x = "Number of Clusters",
+       y = "Number of Votes",
+       title = "Cluster Analysis")
 ```
 
 ```{r}
