@@ -26,16 +26,30 @@ library(NbClust)
 
 ```{r}
 #Load the data
-table(house_votes_Dem$party.labels)
+nba_data = read.csv("../data/nba2020-21.csv")
+View(nba_data)
 
-house_votes_Rep = read.csv("../data/house_votes_Rep.csv")
-
-table(house_votes_Rep$party.labels)
-View(house_votes_Rep)
+nba_salaries = read.csv("../data/nba_salaries_21.csv")
+View(nba_salaries)
 ```
 
 ```{r}
 #Select the variables to be included in the cluster 
+cols = c("FG.", "eFG.", "FT.", "TRB", "AST", "STL", "BLK", "TOV", "PTS")
+clust_data_nba = nba_data[, cols]
+clust_data_nba = clust_data_nba[complete.cases(clust_data_nba),]
+
+View(clust_data_nba)
+
+standardize = function(data_in){
+  #standardizing numeric data
+  (new_data <- scale(data_in, center = TRUE, scale = TRUE))
+  new_data
+
+}
+clust_data_nba[cols] <- as_tibble(lapply(clust_data_nba[cols], standardize))
+# standardized_nba_clust_data = do.call(rbind.data.frame, lapply(clust_data_nba, standardize))
+View(clust_data_nba)
 
 ```
 
