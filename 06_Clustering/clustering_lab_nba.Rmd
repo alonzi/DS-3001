@@ -27,16 +27,19 @@ library(NbClust)
 ```{r}
 #Load the data
 nba_data = read.csv("../data/nba2020-21.csv")
-View(nba_data)
+# View(nba_data)
 
 nba_salaries = read.csv("../data/nba_salaries_21.csv")
-View(nba_salaries)
+# View(nba_salaries)
+
+combined_data = inner_join(nba_data, nba_salaries)
+# View(combined_data)
 ```
 
 ```{r}
 #Select the variables to be included in the cluster 
-cols = c("Player", "FG.", "eFG.", "FT.", "TRB", "AST", "STL", "BLK", "TOV", "PTS")
-clust_data_nba = nba_data[, cols]
+cols = c("Player", "FG.", "eFG.", "FT.", "TRB", "AST", "STL", "BLK", "TOV", "PTS", "X2020.21")
+clust_data_nba = combined_data[, cols]
 clust_data_nba = clust_data_nba[complete.cases(clust_data_nba),]
 
 # View(clust_data_nba)
@@ -45,12 +48,27 @@ standardize = function(data_in){
   #standardizing numeric data
   (new_data <- scale(data_in, center = TRUE, scale = TRUE))
   new_data
-
 }
+
+
+# nba_salaries["salaries_sc"] = standardize(nba_salaries[2])
+# View(nba_salaries)
+# nba_salaries = nba_salaries[ , !(names(nba_salaries) %in% c("X2020.21"))]
+# View(nba_salaries)
+
+
+
 numeric_cols = names(select_if(clust_data_nba, is.numeric))
 clust_data_nba[numeric_cols] <- as_tibble(lapply(clust_data_nba[numeric_cols], standardize))
 # standardized_nba_clust_data = do.call(rbind.data.frame, lapply(clust_data_nba, standardize))
-View(clust_data_nba)
+# View(clust_data_nba)
+standardized_complete_set = clust_data_nba
+
+
+# View(nba_salaries)
+
+# combined_data = inner_join(clust_data_nba, nba_salaries)
+
 
 ```
 
@@ -72,10 +90,13 @@ explained_variance = function(data_in, k){
 player_names = clust_data_nba[0:1]
 str(player_names)
 
-drops = c("Player")
+salaries = clust_data_nba$X2020.21
+# View(salaries)
+
+drops = c("Player", "X2020.21")
 clust_data_nba = clust_data_nba[ , !(names(clust_data_nba) %in% drops)]
 
-# View(clust_data_nba)
+View(clust_data_nba)
 
 #Apply my function to the dataframe we have
 explained_var_nba = sapply(1:10, explained_variance, data_in = clust_data_nba)
@@ -87,7 +108,7 @@ explained_var_nba = sapply(1:10, explained_variance, data_in = clust_data_nba)
 # elbow_data_nba = data.frame(k = 1:10, explained_var_nba)
 # View(explained_var_nba)
 elbow_data_nba = data.frame(k = 1:10, explained_var_nba)
-View(elbow_data_nba)
+# View(elbow_data_nba)
 ```
 
 ```{r}
@@ -98,7 +119,7 @@ View(elbow_data_nba)
 # View(elbow_data_Dem)
 # View(elbow_data_nba)
 
-View(elbow_data_nba)
+# View(elbow_data_nba)
 ggplot(elbow_data_nba, 
        aes(x = k,  
            y = explained_var_nba)) + 
@@ -108,10 +129,87 @@ ggplot(elbow_data_nba,
   ylab('Inter-cluster Variance / Total Variance') + 
   theme_light()
 
-# With the elbow method, it looks like 2 clusters is a good choice
+# With the elbow method, it looks like 2 or 4 clusters is a good choice
 ```
 
+
+
 ```{r}
+set.seed(1)
+kmeans_obj_nba_4clust = kmeans(clust_data_nba, centers = 2, 
+                        algorithm = "Lloyd")   #<- there are several ways of implementing k-means, see the help menu for a full list
+#! Lloyd = euclidean distance for clustering
+# What did the kmeans function produce, 
+# what does the new variable kmeans_obj contain?
+kmeans_obj_nba_4clust
+#! the output of this: 
+    #!clustering vector: each row is classified as 1 or 2
+    #!between_SS / total_SS = average variance of each point to its centers (??)
+
+
+# View the results of each output of the kmeans function.
+head(kmeans_obj_nba_4clust)
+
+```
+```{r}
+salary_clusters_nba = as.factor(kmeans_obj_nba_4clust$cluster)
+
+# What does the kmeans_obj look like?
+View(salary_clusters_nba)
+
+#==================================================================================
+
+#### Slide 29: Step 3: visualize plot ####
+
+View(standardized_complete_set)
+View(salary_clusters_nba)
+
+ggplot(standardized_complete_set, aes(x = PTS, 
+                            y = X2020.21,
+                            color = salary_clusters_nba,
+                            shape = salary_clusters_nba)) + 
+  geom_point(size = 4) +
+  ggtitle("Points gained vs Salary NBA basketball players") +
+  xlab("Standardized Points Gained By Players") +
+  ylab("Standardized Salary") +
+  scale_shape_manual(name = "Cluster", 
+                     labels = c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4"),
+                     values = c("1", "2", "3", "4")) +
+  scale_color_manual(name = "Groups",         #<- tell R which colors to use and
+                     #   which labels to include in the legend
+                     labels = c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4"),
+                     values = c("red", "blue", "green", "black")) +
+  theme_light()
+
+
+```
+
+
+```{r}
+#Let's try out 2 clusters
+
+set.seed(1)
+kmeans_obj_nba_4clust = kmeans(clust_data_nba, centers = 2, 
+                        algorithm = "Lloyd")   #<- there are several ways of implementing k-means, see the help menu for a full list
+#! Lloyd = euclidean distance for clustering
+# What did the kmeans function produce, 
+# what does the new variable kmeans_obj contain?
+kmeans_obj_nba_4clust
+#! the output of this: 
+    #!clustering vector: each row is classified as 1 or 2
+    #!between_SS / total_SS = average variance of each point to its centers (??)
+
+
+# View the results of each output of the kmeans function.
+head(kmeans_obj_nba_4clust)
+
+```
+
+
+```{r}
+
+#JUST TRYING THIS OUT. REMOVE IF NO LONGER NECESSARY
+
 #Use NbClust to select a number of clusters
 library(NbClust)
 
@@ -119,7 +217,7 @@ library(NbClust)
 (nbclust_obj_nba = NbClust(data = clust_data_nba, method = "kmeans"))
 
 # View the output of NbClust.
-nbclust_obj_Dem
+nbclust_obj_nba
 
 # View the output that shows the number of clusters each method recommends.
 View(nbclust_obj_Dem$Best.nc)
@@ -127,19 +225,19 @@ View(nbclust_obj_Dem$Best.nc)
 
 ```{r}
 #Display the results visually
-freq_k_Dem = nbclust_obj_Dem$Best.nc[1,]
-freq_k_Dem = data.frame(freq_k_Dem)
-View(freq_k_Dem)
+freq_k_nba = nbclust_obj_nba$Best.nc[1,]
+freq_k_nba = data.frame(freq_k_nba)
+View(freq_k_nba)
 
 # Check the maximum number of clusters suggested.
-max(freq_k_Dem)
+max(freq_k_nba)
 
 #essentially resets the plot viewer back to default
-dev.off()
+# dev.off()
 
 # Plot as a histogram.
-ggplot(freq_k_Dem,
-       aes(x = freq_k_Dem)) +
+ggplot(freq_k_nba,
+       aes(x = freq_k_nba)) +
   geom_bar() +
   scale_x_continuous(breaks = seq(0, 15, by = 1)) +
   scale_y_continuous(breaks = seq(0, 12, by = 1)) +
@@ -149,8 +247,10 @@ ggplot(freq_k_Dem,
 ```
 
 ```{r}
-#Using the recommended number of cluster compare the quality of the model 
-#with 2 clusters 
+#Using the recommended number of clusters and perform k-means clustering
+
+
+
 ```
 
 
