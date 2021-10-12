@@ -28,11 +28,16 @@ library(NbClust)
 #Load the data
 nba_data = read.csv("../data/nba2020-21.csv")
 # View(nba_data)
+NROW(nba_data)
 
 nba_salaries = read.csv("../data/nba_salaries_21.csv")
+NROW(nba_salaries)
 # View(nba_salaries)
 
 combined_data = inner_join(nba_data, nba_salaries)
+combined_data = tibble::rowid_to_column(combined_data, "ID")
+
+
 # View(combined_data)
 ```
 
@@ -42,10 +47,10 @@ combined_data = inner_join(nba_data, nba_salaries)
 ```{r}
 #Select the variables to be included in the cluster 
 # cols = c("Player", "FG.", "eFG.", "FT.", "TRB", "AST", "STL", "BLK", "TOV", "PTS", "X2020.21")
-cols = c("Player", "PTS", "BLK", "X2020.21")
+cols = c("ID", "Player", "PTS", "BLK","eFG.", "X2020.21")
 clust_data_nba = combined_data[, cols]
 clust_data_nba = clust_data_nba[complete.cases(clust_data_nba),]
-
+NROW(clust_data_nba)
 # View(clust_data_nba)
 
 standardize = function(data_in){
@@ -60,14 +65,20 @@ standardize = function(data_in){
 # nba_salaries = nba_salaries[ , !(names(nba_salaries) %in% c("X2020.21"))]
 # View(nba_salaries)
 
-
+ID = clust_data_nba$ID
+drops = c("ID")
+clust_data_nba = clust_data_nba[ , !(names(clust_data_nba) %in% drops)]
 
 numeric_cols = names(select_if(clust_data_nba, is.numeric))
+
+
+
 clust_data_nba[numeric_cols] <- as_tibble(lapply(clust_data_nba[numeric_cols], standardize))
 # standardized_nba_clust_data = do.call(rbind.data.frame, lapply(clust_data_nba, standardize))
 # View(clust_data_nba)
+clust_data_nba$ID = as.factor(ID)
 standardized_complete_set = clust_data_nba
-
+NROW(standardized_complete_set)
 
 # View(nba_salaries)
 
@@ -78,8 +89,9 @@ standardized_complete_set = clust_data_nba
 
 ```{r}
 #Start by trying to cluster the salary into 2 categorical variables (overpaid and underpaid)
-clust_data_nba$X2020.21
-?data.frame
+NROW(clust_data_nba$X2020.21)
+NROW(standardized_complete_set)
+# ?data.frame
 nba_player_salary_clust = data.frame(clust_data_nba["X2020.21"])
 set.seed(1)
 salary_kmeans_obj = kmeans(nba_player_salary_clust, centers = 3, algorithm = "Lloyd", iter.max = 30)
@@ -87,11 +99,11 @@ salary_kmeans_obj = kmeans(nba_player_salary_clust, centers = 3, algorithm = "Ll
 salary_kmeans_obj
 #Clustering the salaries into 3 clusters gives me a within cluster sum of squares by cluster of 90.6%.
 
-salary_kmeans_obj$cluster
+NROW(salary_kmeans_obj$cluster)
 salary_cluster = as.factor(salary_kmeans_obj$cluster)
-
+NROW(salary_cluster)
 #plot out the salary clusters
-?ggplot
+# ?ggplot
 ggplot(nba_player_salary_clust, aes(x = X2020.21, 
                             # y = X2020.21,
                             color = salary_cluster,
@@ -108,9 +120,11 @@ ggplot(nba_player_salary_clust, aes(x = X2020.21,
                      values = c("red", "blue", "green")) +
   theme_light()
 
-Player = standardized_complete_set["Player"]
-player_salaries_cluster = data.frame(Player, salary_cluster)
-# View(player_salaries_cluster)
+ID = standardized_complete_set["ID"]
+NROW(ID)
+player_salaries_cluster = data.frame(ID, salary_cluster)
+NROW(player_salaries_cluster)
+str(player_salaries_cluster)
 
 salary_group = c("low pay", "middle pay", "high pay")
 salary_cluster = c("1", "2", "3")
@@ -120,13 +134,24 @@ salary_cluster_labels = data.frame(salary_group,salary_cluster, color )
 # salary_cluster_labels
 
 salary_group_join_clusters = inner_join(player_salaries_cluster, salary_cluster_labels)
-# salary_group_join_clusters
+str(salary_group_join_clusters)
+NROW(salary_group_join_clusters)
+NROW(standardized_complete_set)
+
+str(salary_group_join_clusters)
+# View(salary_group_join_clusters)
+NROW(standardized_complete_set)
+View(standardized_complete_set)
+
+str(salary_group_join_clusters)
+str(standardized_complete_set)
 
 standardized_complete_set = inner_join(standardized_complete_set, salary_group_join_clusters)
+NROW(standardized_complete_set)
 standardized_complete_set = standardized_complete_set[ , !(names(standardized_complete_set) %in% c("salary_cluster"))]
 
-# View(standardized_complete_set)
-
+View(standardized_complete_set)
+NROW(standardized_complete_set)
 
 #As we can see, the salaries can be clustered into 3 categories.
 
@@ -136,6 +161,10 @@ standardized_complete_set = standardized_complete_set[ , !(names(standardized_co
 
 ```{r}
 #Evaluate several different number of clusters
+NROW(clust_data_nba)
+# View(clust_data_nba)
+
+
 explained_variance = function(data_in, k){
   
   # Running the kmeans algorithm.
@@ -153,10 +182,11 @@ player_names = clust_data_nba[0:1]
 
 salaries = clust_data_nba$X2020.21
 # View(salaries)
+# nba_data_with_salary_group = clust_data_nba
+# View(nba_data_with_salary_group)
 
 drops = c("Player", "salary_group", "X2020.21")
 clust_data_nba = clust_data_nba[ , !(names(clust_data_nba) %in% drops)]
-
 # View(clust_data_nba)
 
 #Apply my function to the dataframe we have
@@ -197,23 +227,24 @@ ggplot(elbow_data_nba,
 
 ```{r}
 set.seed(1)
-kmeans_obj_nba_4clust = kmeans(clust_data_nba, centers = 4, 
+# length(clust_data_nba)
+kmeans_obj_nba_3clust = kmeans(clust_data_nba, centers = 3, 
                         algorithm = "Lloyd")   #<- there are several ways of implementing k-means, see the help menu for a full list
 #! Lloyd = euclidean distance for clustering
 
-kmeans_obj_nba_4clust
-# Within cluster sum of squares by cluster: 73.3%
+kmeans_obj_nba_3clust
+# Within cluster sum of squares by cluster: 88.9%
 
 
 # View the results of each output of the kmeans function.
-head(kmeans_obj_nba_4clust)
+head(kmeans_obj_nba_3clust)
 
 ```
 ```{r}
-salary_clusters_nba = as.factor(kmeans_obj_nba_4clust$cluster)
+salary_clusters_nba = as.factor(kmeans_obj_nba_3clust$cluster)
 
 # What does the kmeans_obj look like?
-# View(salary_clusters_nba)
+View(salary_clusters_nba)
 
 #==================================================================================
 
@@ -223,21 +254,28 @@ salary_clusters_nba = as.factor(kmeans_obj_nba_4clust$cluster)
 # View(salary_clusters_nba)
 
 # Points and Salary
+# length(salary_clusters_nba)
+# length(standardized_complete_set$color)
+# View(standardized_complete_set)
+View(standardized_complete_set)
+NROW(standardized_complete_set$color)
+NROW(salary_clusters_nba)
+
 ggplot(standardized_complete_set, aes(x = PTS, 
                             y = BLK,
-                            color = salary_clusters_nba,
+                            color = standardized_complete_set$color,
                             shape = salary_clusters_nba)) + 
-  geom_point(size = 4) +
-  ggtitle("Points gained vs Salary NBA basketball players") +
+  geom_point(size = 3) +
+  ggtitle("Points gained vs Blocks gained") +
   xlab("Standardized Points Gained By Players") +
-  ylab("Standardized Salary") +
+  ylab("Standardized Blocks By Players") +
   scale_shape_manual(name = "Cluster", 
-                     labels = c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4"),
-                     values = c("1", "2", "3", "4")) +
+                     labels = c("Cluster 1", "Cluster 2", "Cluster 3"),
+                     values = c("1", "2", "3")) +
   scale_color_manual(name = "Groups",         #<- tell R which colors to use and
                      #   which labels to include in the legend
-                     labels = c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4"),
-                     values = c("red", "blue", "green", "black")) +
+                     labels = c("low pay", "middle pay", "high pay"),
+                     values = c("red", "blue", "green")) +
   theme_light()
 
 # Points and Effective Field Goal Percentage
@@ -263,7 +301,7 @@ ggplot(standardized_complete_set, aes(x = PTS,
                             y = BLK,
                             color = salary_clusters_nba,
                             shape = salary_clusters_nba)) + 
-  geom_point(size = 4) +
+  geom_point(size = 3) +
   ggtitle("Points gained vs Blocks") +
   xlab("Standardized Points Gained By Players") +
   ylab("Standardized Blocks Performed By Players") +
@@ -312,14 +350,13 @@ salary_pts_blk_3d = inner_join(salary_pts_blk_3d, cluster_colors)
 salary_pts_blk_3d$Player <- gsub("[^[:alnum:]]", "_", salary_pts_blk_3d$Player)
 
 # View(salary_pts_blk_3d)
-fig <- plot_ly(salary_pts_blk_3d, 
+fig <- plot_ly(standardized_complete_set, 
                type = "scatter3d",
                mode="markers",
-               symbol = ~cluster,
                x = ~PTS, 
-               y = ~X2020.21, 
+               y = ~eFG., 
                z = ~BLK,
-               color = ~color,
+               color = ~salary_group,
                colors = c("#0000FF", '#00FF00','#FF0000'),
                text = ~paste('Player:',Player))
 
