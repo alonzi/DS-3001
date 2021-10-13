@@ -96,7 +96,7 @@ str(player_salaries_cluster)
 
 salary_group = c("low pay", "middle pay", "high pay")
 salary_cluster = c("1", "2", "3")
-color = c("red", "blue", "green")
+color = c("green", "blue", "red")
 
 salary_cluster_labels = data.frame(salary_group,salary_cluster, color )
 
