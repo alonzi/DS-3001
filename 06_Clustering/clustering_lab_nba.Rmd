@@ -5,65 +5,47 @@ date: "10/08/2021"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=FALSE, results='hide', message=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(results = "hide")
+knitr::opts_chunk$set(message=FALSE)
+knitr::opts_chunk$set(warning=FALSE)
 ```
 
-# Goal: Know how to make decisions and answer questions using clustering. 
-
-# Repeat the clustering process only using the Rep house votes dataset
-# - What differences and similarities did you see between how the clustering 
-# worked for the datasets?
-
-```{r}
+```{r,  results='hide'}
 library(tidyverse)
 library(plotly)
 library(htmltools)
 library(devtools)
 library(caret)
-library(NbClust)
 ```
 
 ```{r}
-#Load the data
+##Load the data
 nba_data = read.csv("../data/nba2020-21.csv")
-# View(nba_data)
-NROW(nba_data)
 
 nba_salaries = read.csv("../data/nba_salaries_21.csv")
-NROW(nba_salaries)
-# View(nba_salaries)
 
 combined_data = inner_join(nba_data, nba_salaries)
+## Add an ID column because some names are repeated
 combined_data = tibble::rowid_to_column(combined_data, "ID")
 
-
-# View(combined_data)
 ```
 
-
+After looking through the data, I decided to use 3 different metrics to try and find low paying and high performing players. I believe that the most important traits of a player include the number of points they score (PTS), the number of blocks they can execute (BLK) and their effective field goal percentage (eFG.). This is because points will help the team win the game, while blocks will prevent the enemy team from scoring too much. eFG. is there to help ensure that our players have a certain level of accuracy, which is desired among basketball players.
 
 
 ```{r}
-#Select the variables to be included in the cluster 
-# cols = c("Player", "FG.", "eFG.", "FT.", "TRB", "AST", "STL", "BLK", "TOV", "PTS", "X2020.21")
+##Select the variables to be included in the cluster 
 cols = c("ID", "Player", "PTS", "BLK","eFG.", "X2020.21")
 clust_data_nba = combined_data[, cols]
 clust_data_nba = clust_data_nba[complete.cases(clust_data_nba),]
-NROW(clust_data_nba)
-# View(clust_data_nba)
 
 standardize = function(data_in){
-  #standardizing numeric data
+  ###standardizing numeric data
   (new_data <- scale(data_in, center = TRUE, scale = TRUE))
   new_data
 }
-
-
-# nba_salaries["salaries_sc"] = standardize(nba_salaries[2])
-# View(nba_salaries)
-# nba_salaries = nba_salaries[ , !(names(nba_salaries) %in% c("X2020.21"))]
-# View(nba_salaries)
 
 ID = clust_data_nba$ID
 drops = c("ID")
@@ -71,39 +53,26 @@ clust_data_nba = clust_data_nba[ , !(names(clust_data_nba) %in% drops)]
 
 numeric_cols = names(select_if(clust_data_nba, is.numeric))
 
-
-
+### Standardizing numeric columns
 clust_data_nba[numeric_cols] <- as_tibble(lapply(clust_data_nba[numeric_cols], standardize))
-# standardized_nba_clust_data = do.call(rbind.data.frame, lapply(clust_data_nba, standardize))
-# View(clust_data_nba)
+
 clust_data_nba$ID = as.factor(ID)
 standardized_complete_set = clust_data_nba
-NROW(standardized_complete_set)
-
-# View(nba_salaries)
-
-# combined_data = inner_join(clust_data_nba, nba_salaries)
-
 
 ```
 
+I first started by categorizing players based on their salary. I wanted to create a categorical variable that indicated whether the player was in the "low pay", "middle pay" or "high pay" range of salary. I decided to use 3 clusters for the salary after much experimentation. The results of my experimentation are in the bar graph below, which shows that there is a decent amount of players in each category.
 ```{r}
-#Start by trying to cluster the salary into 2 categorical variables (overpaid and underpaid)
-NROW(clust_data_nba$X2020.21)
-NROW(standardized_complete_set)
-# ?data.frame
+## Start by trying to cluster the salary into 3 categorical variables (low pay, middle play and high pay)
 nba_player_salary_clust = data.frame(clust_data_nba["X2020.21"])
 set.seed(1)
 salary_kmeans_obj = kmeans(nba_player_salary_clust, centers = 3, algorithm = "Lloyd", iter.max = 30)
 
-salary_kmeans_obj
-#Clustering the salaries into 3 clusters gives me a within cluster sum of squares by cluster of 90.6%.
+salary_kmeans_obj$betweenss / salary_kmeans_obj$totss
+### Clustering the salaries into 3 clusters gives me a within cluster sum of squares by cluster of 90.6%.
 
-NROW(salary_kmeans_obj$cluster)
 salary_cluster = as.factor(salary_kmeans_obj$cluster)
-NROW(salary_cluster)
-#plot out the salary clusters
-# ?ggplot
+### Plot out the salary clusters
 ggplot(nba_player_salary_clust, aes(x = X2020.21, 
                             # y = X2020.21,
                             color = salary_cluster,
@@ -114,16 +83,15 @@ ggplot(nba_player_salary_clust, aes(x = X2020.21,
   scale_shape_manual(name = "Cluster", 
                      labels = c("Cluster 1", "Cluster 2", "Cluster 3"),
                      values = c("1", "2", "3")) +
-  scale_color_manual(name = "Groups",         #<- tell R which colors to use and
-                     #   which labels to include in the legend
+  scale_color_manual(name = "Groups",        
                      labels = c("Cluster 1", "Cluster 2", "Cluster 3"),
                      values = c("red", "blue", "green")) +
   theme_light()
 
 ID = standardized_complete_set["ID"]
-NROW(ID)
+
 player_salaries_cluster = data.frame(ID, salary_cluster)
-NROW(player_salaries_cluster)
+
 str(player_salaries_cluster)
 
 salary_group = c("low pay", "middle pay", "high pay")
@@ -131,136 +99,80 @@ salary_cluster = c("1", "2", "3")
 color = c("red", "blue", "green")
 
 salary_cluster_labels = data.frame(salary_group,salary_cluster, color )
-# salary_cluster_labels
 
 salary_group_join_clusters = inner_join(player_salaries_cluster, salary_cluster_labels)
 str(salary_group_join_clusters)
-NROW(salary_group_join_clusters)
-NROW(standardized_complete_set)
-
-str(salary_group_join_clusters)
-# View(salary_group_join_clusters)
-NROW(standardized_complete_set)
-View(standardized_complete_set)
-
-str(salary_group_join_clusters)
-str(standardized_complete_set)
 
 standardized_complete_set = inner_join(standardized_complete_set, salary_group_join_clusters)
-NROW(standardized_complete_set)
 standardized_complete_set = standardized_complete_set[ , !(names(standardized_complete_set) %in% c("salary_cluster"))]
 
-View(standardized_complete_set)
-NROW(standardized_complete_set)
-
-#As we can see, the salaries can be clustered into 3 categories.
+### As we can see, the salaries can be clustered into 3 categories.
 
   
 ```
 
-
-```{r}
-#Evaluate several different number of clusters
-NROW(clust_data_nba)
-# View(clust_data_nba)
-
-
+With the players categorized by their salary, I tried to discover how many clusters would be needed to categorize the performance variables (PTS, BLK and .eFG). I used this function to try and find how much the clustering explained the variance.
+```{r, echo=TRUE}
+## Evaluate several different number of clusters
 explained_variance = function(data_in, k){
-  
-  # Running the kmeans algorithm.
+  ### Running the kmeans algorithm.
   set.seed(1)
   kmeans_obj = kmeans(data_in, centers = k, algorithm = "Lloyd", iter.max = 30)
   
-  # Variance accounted for by clusters:
-  # var_exp = intercluster variance / total variance
+  ### Variance accounted for by clusters:
+  ### var_exp = intercluster variance / total variance
   var_exp = kmeans_obj$betweenss / kmeans_obj$totss
   var_exp  
 }
 
-player_names = clust_data_nba[0:1]
-#str(player_names)
-
-salaries = clust_data_nba$X2020.21
-# View(salaries)
-# nba_data_with_salary_group = clust_data_nba
-# View(nba_data_with_salary_group)
-
-drops = c("Player", "salary_group", "X2020.21")
-clust_data_nba = clust_data_nba[ , !(names(clust_data_nba) %in% drops)]
-# View(clust_data_nba)
-
-#Apply my function to the dataframe we have
-explained_var_nba = sapply(1:10, explained_variance, data_in = clust_data_nba)
-
-# View(explained_var_nba)
-
-
-# Data for ggplot2.
-# elbow_data_nba = data.frame(k = 1:10, explained_var_nba)
-# View(explained_var_nba)
-elbow_data_nba = data.frame(k = 1:10, explained_var_nba)
-# View(elbow_data_nba)
 ```
 
 ```{r}
-#Create a elbow chart of the output 
-# View(explained_var_nba)
-# View(explained_var_Dem)
-# 
-# View(elbow_data_Dem)
-# View(elbow_data_nba)
 
-# View(elbow_data_nba)
+player_names = clust_data_nba[0:1]
+
+salaries = clust_data_nba$X2020.21
+### Removing irrelevant data to the kmeans clustering
+drops = c("Player", "salary_group", "X2020.21")
+clust_data_nba = clust_data_nba[ , !(names(clust_data_nba) %in% drops)]
+
+### Apply my function to the dataframe we have
+explained_var_nba = sapply(1:10, explained_variance, data_in = clust_data_nba)
+
+elbow_data_nba = data.frame(k = 1:10, explained_var_nba)
+```
+
+I plotted the variance explained out to use the elbow method, it looks like 3 clusters is a good choice.
+```{r}
+## Create a elbow chart of the output 
 ggplot(elbow_data_nba, 
        aes(x = k,  
            y = explained_var_nba)) + 
-  geom_point(size = 4) +           #<- sets the size of the data points
-  geom_line(size = 1) +            #<- sets the thickness of the line
+  geom_point(size = 4) +           
+  geom_line(size = 1) +          
   xlab('k') + 
   ylab('Inter-cluster Variance / Total Variance') + 
   theme_light()
 
-# With the elbow method, it looks like 2 or 4 clusters is a good choice
+### With the elbow method, it looks like 3 clusters is a good choice
 ```
 
 
-
+I them proceeded to create three clusters for performance and overlay the pay range clusters (low, middle and high). I got some promising results below. Here, we can see that there are some players in the "low pay" range who perform quite well in certain areas. The withinSS I got was 88.9%.
 ```{r}
 set.seed(1)
-# length(clust_data_nba)
 kmeans_obj_nba_3clust = kmeans(clust_data_nba, centers = 3, 
-                        algorithm = "Lloyd")   #<- there are several ways of implementing k-means, see the help menu for a full list
-#! Lloyd = euclidean distance for clustering
+                        algorithm = "Lloyd")
 
-kmeans_obj_nba_3clust
-# Within cluster sum of squares by cluster: 88.9%
-
-
-# View the results of each output of the kmeans function.
-head(kmeans_obj_nba_3clust)
+kmeans_obj_nba_3clust$betweenss / kmeans_obj_nba_3clust$totss
+## Within cluster sum of squares by cluster: 88.9%
 
 ```
 ```{r}
+## Generate some plots for analysis
 salary_clusters_nba = as.factor(kmeans_obj_nba_3clust$cluster)
 
-# What does the kmeans_obj look like?
-View(salary_clusters_nba)
-
-#==================================================================================
-
-#### Slide 29: Step 3: visualize plot ####
-
-# View(standardized_complete_set)
-# View(salary_clusters_nba)
-
-# Points and Salary
-# length(salary_clusters_nba)
-# length(standardized_complete_set$color)
-# View(standardized_complete_set)
-View(standardized_complete_set)
-NROW(standardized_complete_set$color)
-NROW(salary_clusters_nba)
-
+### Points and Blocks
 ggplot(standardized_complete_set, aes(x = PTS, 
                             y = BLK,
                             color = standardized_complete_set$color,
@@ -272,75 +184,34 @@ ggplot(standardized_complete_set, aes(x = PTS,
   scale_shape_manual(name = "Cluster", 
                      labels = c("Cluster 1", "Cluster 2", "Cluster 3"),
                      values = c("1", "2", "3")) +
-  scale_color_manual(name = "Groups",         #<- tell R which colors to use and
-                     #   which labels to include in the legend
+  scale_color_manual(name = "Groups",         
                      labels = c("low pay", "middle pay", "high pay"),
                      values = c("red", "blue", "green")) +
   theme_light()
 
-# Points and Effective Field Goal Percentage
-# ggplot(standardized_complete_set, aes(x = PTS, 
-#                             y = eFG.,
-#                             color = salary_clusters_nba,
-#                             shape = salary_clusters_nba)) + 
-#   geom_point(size = 4) +
-#   ggtitle("Points gained vs Effective Field Goal Percentage") +
-#   xlab("Standardized Points Gained By Players") +
-#   ylab("Standardized Effective Field Goal Percentage") +
-#   scale_shape_manual(name = "Cluster", 
-#                      labels = c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4"),
-#                      values = c("1", "2", "3", "4")) +
-#   scale_color_manual(name = "Groups",         #<- tell R which colors to use and
-#                      #   which labels to include in the legend
-#                      labels = c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4"),
-#                      values = c("red", "blue", "green", "black")) +
-#   theme_light()
-
-# Points and Blocks
+### Points and Effective Field Goal %
 ggplot(standardized_complete_set, aes(x = PTS, 
-                            y = BLK,
-                            color = salary_clusters_nba,
+                            y = eFG.,
+                            color = standardized_complete_set$color,
                             shape = salary_clusters_nba)) + 
   geom_point(size = 3) +
-  ggtitle("Points gained vs Blocks") +
+  ggtitle("Points gained vs Effective Field Goal %") +
   xlab("Standardized Points Gained By Players") +
-  ylab("Standardized Blocks Performed By Players") +
+  ylab("Standardized Effective Field Goal %") +
   scale_shape_manual(name = "Cluster", 
-                     labels = c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4"),
-                     values = c("1", "2", "3", "4")) +
-  scale_color_manual(name = "Groups",         #<- tell R which colors to use and
-                     #   which labels to include in the legend
-                     labels = c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4"),
-                     values = c("red", "blue", "green", "black")) +
+                     labels = c("Cluster 1", "Cluster 2", "Cluster 3"),
+                     values = c("1", "2", "3")) +
+  scale_color_manual(name = "Groups",        
+                     labels = c("low pay", "middle pay", "high pay"),
+                     values = c("red", "blue", "green")) +
   theme_light()
-#
-# ggplot(standardized_complete_set, aes(x = AST, 
-#                             y = X2020.21,
-#                             color = salary_clusters_nba,
-#                             shape = salary_clusters_nba)) + 
-#   geom_point(size = 4) +
-#   ggtitle("Assists vs Salary NBA basketball players") +
-#   xlab("Standardized Number of Assists Performed By Players") +
-#   ylab("Standardized Salary") +
-#   scale_shape_manual(name = "Cluster", 
-#                      labels = c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4"),
-#                      values = c("1", "2", "3", "4")) +
-#   scale_color_manual(name = "Groups",         #<- tell R which colors to use and
-#                      #   which labels to include in the legend
-#                      labels = c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4"),
-#                      values = c("red", "blue", "green", "black")) +
-#   theme_light()
 
-
-
-#cluster by salary first (low pay, medium pay, high pay)
-
-#then cluster by performance and overlay salary cluster's color onto graph.
+### As we can see, there are a few candidates in these plots (low pay but high performance.) Let's analyze them in a 3D Graph.
 ```
+However, these 2D graphs will not be enough for us to find good players. A 3D graph will allow us to see the clusters in their entirety. This interactive model is shown below.
+```{r, results='show'}
+## 3D graph with Blocks, Points and Effective Field Goal %
 
-```{r}
-#3D graph with Blocks, Points and Salary
-View(standardized_complete_set)
 salary_pts_blk_3d = standardized_complete_set
 salary_pts_blk_3d$cluster = salary_clusters_nba
 cluster_colors = data.frame(cluster = c("1", "2", "3"),
@@ -349,7 +220,6 @@ salary_pts_blk_3d = inner_join(salary_pts_blk_3d, cluster_colors)
 
 salary_pts_blk_3d$Player <- gsub("[^[:alnum:]]", "_", salary_pts_blk_3d$Player)
 
-# View(salary_pts_blk_3d)
 fig <- plot_ly(standardized_complete_set, 
                type = "scatter3d",
                mode="markers",
@@ -359,123 +229,21 @@ fig <- plot_ly(standardized_complete_set,
                color = ~salary_group,
                colors = c("#0000FF", '#00FF00','#FF0000'),
                text = ~paste('Player:',Player))
-
-
 fig
 
 ```
+As we can see, there are several good candidates for selection. 
 
-```{r}
-#Let's try out 2 clusters
+![](../06_Clustering/high_eFG._player.png)
+Nicholas Batum is a good choice because he has a high eFG. with low pay.
+![](../06_Clustering/high_points_player.png)
+Jamal Murray is a good choice because he scores lots of points with low pay. In addition, his eFG. and BLK are not too bad (greater than 0).
 
-set.seed(1)
-kmeans_obj_nba_4clust = kmeans(clust_data_nba, centers = 2, 
-                        algorithm = "Lloyd")   #<- there are several ways of implementing k-means, see the help menu for a full list
-#! Lloyd = euclidean distance for clustering
-# What did the kmeans function produce, 
-# what does the new variable kmeans_obj contain?
-kmeans_obj_nba_4clust
-#! the output of this: 
-    #!clustering vector: each row is classified as 1 or 2
-    #!between_SS / total_SS = average variance of each point to its centers (??)
+![](../06_Clustering/high_block_rate_player.png)
+Bradley Beal is a good choice because he has a lot of blocks and he scores decently (eFG. > 0 and PTS > 0.75).
 
+Overall, I beleive these players are under paid but highly performant. I highly recommend these players for our team.
 
-# View the results of each output of the kmeans function.
-head(kmeans_obj_nba_4clust)
-
-```
-
-
-```{r}
-
-#JUST TRYING THIS OUT. REMOVE IF NO LONGER NECESSARY
-
-#Use NbClust to select a number of clusters
-library(NbClust)
-
-# Run NbClust.
-(nbclust_obj_nba = NbClust(data = clust_data_nba, method = "kmeans"))
-
-# View the output of NbClust.
-nbclust_obj_nba
-
-# View the output that shows the number of clusters each method recommends.
-View(nbclust_obj_Dem$Best.nc)
-```
-
-```{r}
-#Display the results visually
-freq_k_nba = nbclust_obj_nba$Best.nc[1,]
-freq_k_nba = data.frame(freq_k_nba)
-View(freq_k_nba)
-
-# Check the maximum number of clusters suggested.
-max(freq_k_nba)
-
-#essentially resets the plot viewer back to default
-# dev.off()
-
-# Plot as a histogram.
-ggplot(freq_k_nba,
-       aes(x = freq_k_nba)) +
-  geom_bar() +
-  scale_x_continuous(breaks = seq(0, 15, by = 1)) +
-  scale_y_continuous(breaks = seq(0, 12, by = 1)) +
-  labs(x = "Number of Clusters",
-       y = "Number of Votes",
-       title = "Cluster Analysis")
-```
-
-```{r}
-#Using the recommended number of clusters and perform k-means clustering
-
-
-
-```
-
-
-```{r}
-#Bonus: Create a 3d version of the output
-```
-
-```{r}
-#! also do practice for the rep/dem data set and submit it.
-```
-
-In a separate Rmarkdown document work through a similar process 
-with the NBA data (nba2020-21 and nba_salaries_21), merge them together. 
-
-You are a scout for the worst team in the NBA, probably the Wizards. Your 
-general manager just heard about Data Science and thinks it can solve all the
-teams problems!!! She wants you to figure out a way to find players that are 
-high performing but maybe not highly paid that you can steal to get the team 
-to the playoffs! 
-
-Details: 
-
-- Determine a way to use clustering to estimate based on performance if 
-players are under or over paid, generally. 
-- Then select three players you believe would be best your team and explain why. 
-- Provide a well commented and clean (knitted) report of your findings that can 
-be presented to your GM. Include a rationale for variable selection, details 
-on your approach and a overview of the results with supporting visualizations. 
-- Create a new repo for this assignment either for yourself and 
-submit the link along with your knitted report. 
-
-Hints:
-
-- Salary is the variable you are trying to understand 
-- You can include numerous performance variables in the clustering but when 
-interpreting you might want to use graphs that include variables that are the 
-most correlated with Salary
-- You'll need to standardize the variables before performing the clustering
-- Be specific about why you selected the players that you did, more detail is 
-better
-- Use good coding practices, comment heavily, indent, don't use for loops unless
-totally necessary and create modular sections that align with some outcome. If 
-necessary create more than one script,list/load libraries at the top and don't 
-include libraries that aren't used. 
-  
 
 
 

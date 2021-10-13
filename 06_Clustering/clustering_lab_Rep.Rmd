@@ -174,6 +174,8 @@ dev.off()
 
 ```
 
+I don't notice a really big difference between NB clust and the elbow method for this data set. Both seem to point to 2 clusters being the right choice here.
+
 ```{r}
 #Display the results visually 
 # Plot as a histogram.
@@ -298,41 +300,6 @@ fig <- plot_ly(house_votes_color_Rep,
 
 fig
 ```
-
-In a separate Rmarkdown document work through a similar process 
-with the NBA data (nba2020-21 and nba_salaries_21), merge them together. 
-
-You are a scout for the worst team in the NBA, probably the Wizards. Your 
-general manager just heard about Data Science and thinks it can solve all the
-teams problems!!! She wants you to figure out a way to find players that are 
-high performing but maybe not highly paid that you can steal to get the team 
-to the playoffs! 
-
-Details: 
-
-- Determine a way to use clustering to estimate based on performance if 
-players are under or over paid, generally. 
-- Then select three players you believe would be best your team and explain why. 
-- Provide a well commented and clean (knitted) report of your findings that can 
-be presented to your GM. Include a rationale for variable selection, details 
-on your approach and a overview of the results with supporting visualizations. 
-- Create a new repo for this assignment either for yourself and 
-submit the link along with your knitted report. 
-
-Hints:
-
-- Salary is the variable you are trying to understand 
-- You can include numerous performance variables in the clustering but when 
-interpreting you might want to use graphs that include variables that are the 
-most correlated with Salary
-- You'll need to standardize the variables before performing the clustering
-- Be specific about why you selected the players that you did, more detail is 
-better
-- Use good coding practices, comment heavily, indent, don't use for loops unless
-totally necessary and create modular sections that align with some outcome. If 
-necessary create more than one script,list/load libraries at the top and don't 
-include libraries that aren't used. 
-  
 
 
 
