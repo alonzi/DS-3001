@@ -300,11 +300,14 @@ data_prep <- function(x,y,z){
   ii <- unite(i,"text",y:z,remove = TRUE,sep = "")
 }
 
+
 kennedy_inag_bag <- data_prep(kennedy_inag_raw[13:143,2],'V1','V131')
 
-View(kennedy_inag_bag)
-
+# View(kennedy_inag_bag)
+# 
+# View(biden_inag_raw)
 biden_inag_bag <- data_prep(biden_inag_raw,'V1','V425')
+# View(biden_inag_bag)
 
 trump_inag_bag <- data_prep(trump_inag_raw,'V1','V149')
 
