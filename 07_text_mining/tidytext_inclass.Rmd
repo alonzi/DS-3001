@@ -36,6 +36,7 @@ View(animal_house)
 
 ah_word <- animal_house %>%
   unnest_tokens(word, text)
+#! it separates words with spaces " "
 
 str(ah_word)
 
@@ -45,6 +46,8 @@ View(ah_word)
 
 ah_sentence <- animal_house %>%
   unnest_tokens(sentence, text, token = "sentences")
+#! it separates words with punctuation " "
+
 
 View(ah_sentence)
 
@@ -52,7 +55,7 @@ View(ah_sentence)
 
 ah_ngrams <- animal_house %>%
   unnest_tokens(sentence, text, token = "ngrams", n=3)
-
+# tokenize by every 3 words
 View(ah_ngrams)
 
 #We can also use the count() function to start to get an idea on frequencies of used words in our text
@@ -61,7 +64,7 @@ ah_count <- ah_word %>%
   count(word, sort=TRUE)
 
 ah_count$word <- as.factor(ah_count$word)  
-
+# sometimes there are "stop words" like "the, it, is". we can filter them out
 View(ah_count)
 #Quick plot 
 
@@ -76,6 +79,7 @@ ggplot(
 
 #We can also remove stop words, such as "the", "a", "and" essentially the most commonly used words in the English language. Most text packages have a vector list of stop words. This is true of tidytext = stop_words, there's 1,149 of them. We can pass this into our original word tokenization and use a join to remove the stop words.  
 
+# stop words is built in
 View(stop_words)
 
 ah_word_sw <- ah_word %>%
@@ -112,6 +116,7 @@ gutenberg_works(str_detect(title, "Kennedy"))
 eng_gut %>%
   filter(str_detect(title, "Kennedy"))
 
+#3 is the id of Kennedy's inauguration
 kennedy_inag <- gutenberg_download(3, mirror="http://mirrors.xmission.com/gutenberg/") #had to use a new mirror as the default mirror was down, list of mirrors is here: https://www.gutenberg.org/MIRRORS.ALL
 
 #Let's take a look at the speech from 1961
@@ -297,11 +302,15 @@ data_prep <- function(x,y,z){
   ii <- unite(i,"text",y:z,remove = TRUE,sep = "")
 }
 
-kennedy_inag_bag <- data_prep(kennedy_inag_raw[13:143,2],'V1','V131')
 
+kennedy_inag_bag <- data_prep(kennedy_inag_raw[13:143,2],'V1','V131')
 View(biden_inag_bag)
 
+# View(kennedy_inag_bag)
+# 
+# View(biden_inag_raw)
 biden_inag_bag <- data_prep(biden_inag_raw,'V1','V425')
+# View(biden_inag_bag)
 
 trump_inag_bag <- data_prep(trump_inag_raw,'V1','V149')
 
@@ -320,13 +329,22 @@ View(word_count)
 total_words <- word_count %>% 
   group_by(president) %>% 
   summarize(total = sum(n))
+total_words
 
 inag_words
 
-inag_words <- inner_join(word_count, total_words)
+#tf = term frequency
+#idf = inverse document frequency (idf), which decreases the weight for commonly used words and increases the weight for words that are not used very much in a collection of documents.
+#tf-idf : the two factors multiplied.
+
+View(inag_words)
 
 inag_words <- inag_words %>%
   bind_tf_idf(word, president, n)
+
+inag_words <- inag_words %>%
+  anti_join(stop_words)
+
 
 View(inag_words)
 
