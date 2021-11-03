@@ -1,0 +1,62 @@
+Data <-> Model Correspondence
+
+Clustering
+Unsupervised = Data is not labeled
+
+Overview:
+-	When you are trying to learn about something, say music, one approach might be to look for meaningful groups or collections. 
+-	Want to group unlabeled examples into clusters
+
+When to use:
+-	Large, unstructured data
+-	When you don’t know how many or which classes your data is divided into 
+-	When manually dividing and annotating your data is too resource-intensive
+-	When you’re looking for anomalies in your data 
+
+Helps to:
+-	Segment rows (customers, people, etc.)
+-	Help to structure your data 
+
+Common Applications:
+-	Market segmentation
+-	Search result grouping
+-	Image segmentation
+-	Anomaly detection
+Examples of Clustering:
+-	Group stars by brightness.
+-	Group organisms by genetic information into a taxonomy.
+-	Group documents by topic.
+Types of Clustering
+1)	Centroid-based clustering (K-means)
+2)	Density-based clustering 
+3)	Distribution-based clustering 
+4)	Hierarchical Clustering (trees)
+Type of Data 
+-	For Data with Continuous Variables:
+o	Normalize data (z-scores)
+   Well-suited for data that is normally distributed
+o	Log Transformation 
+  	Well-suited for data that clumps at the low end 
+o	Quantiles
+  	Most other times, no clear distribution
+
+-	For Mixed Data (Continuous & Categorical):
+o	Only use continuous features (remove categorical data)
+o	Numerically encode the categorical data (taken = 1, single = 0)
+
+Clustering
+Clustering - Google Course
+
+
+
+Classification/Regression
+Supervised = data has labels 
+
+Overview: 
+-	When you have labeled data that you want to predict something 
+-	Classification 
+o	Used to predict/classify discrete values (i.e. males, females, true, false, et,)
+-	Regression
+o	Used to predict continuous values (price, salary, age, etc.)
+
+Classification vs. Clustering 
