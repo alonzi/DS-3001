@@ -1,0 +1,312 @@
+---
+title: "Reinforcement Lab IM"
+author: "Iain Muir"
+date: "11/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Part 1: Review
+* K-Nearest Neighbors or K-Means Clustering
+* Evaluation Metrics  
+
+### Exercise 1: What do you know?
+**K-Nearest Neighbors**
+* Supervised - requires labels
+* New data point is classified by voting from the k-nearest data points
+  * Distance: Minkowiski -- Manhattan, Euclidean, Chebyshev
+* Threshold for classification defaults 0.5, but can be changed according to the problem  
+
+**K-Means Clustering**
+* Unsupervised - no labels...
+* Clusters determined by distance
+  * Distance: Minkowiski -- Manhattan, Euclidean, Chebyshev
+* Maximize betweenss (inter-cluster) and Minimize withinss (intra-cluster)
+* k is not calculable, determined either via the Elbow method or NbClust (voting mechanism)  
+
+**Evaluation Metrics**
+* Accuracy = TP + TN / All
+* Precision = TP / TP + FP
+* Recall = TP / TP + FN
+* F1: Harmonic mean of Precision and Recall
+  * Good for Data Imbalance
+* Kappa: Measures increase in performance comparative to a dummy model
+
+### Exercise 2: What do you want to know?
+**K-Nearest Neighbors**
+* Finding the best threshold for classification
+* Pick the optimal number and percentage for data partitions
+* How to deal with data imbalance?
+
+**K-Means Clustering**
+* How to chose which distance to use
+  * Manhattan vs. Euclidean vs. Chebyshev  
+* Choosing optimal number of clusters
+
+**Evaluation Metrics**
+* Conceptualizing the metrics
+  * ROC/AUC
+  * LogLoss
+* Interpreting the Confusion Matrix
+* Selecting which metrics are the most important  
+
+# Part 2: Explore
+
+### Exercise 3: Let's Get the Ball Rolling
+Pete's Code...
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+df <- read.csv('data-summary.csv')
+head(df)
+```
+
+```{r}
+subset <- select(df, main_colors, opp_colors, on_play, num_turns, won)
+head(subset)
+```
+
+```{r}
+deck <- select(df, "deck_Adeline, Resplendent Cathar":"deck_Wrenn and Seven")
+mat = data.matrix(deck)
+```
+
+```{r}
+vec1 <- vector()
+vec3 <- vector()
+for(i in 1:nrow(mat) ){
+  x<-cor( mat[1,] , mat[i,])
+  vec1 <- c(vec1,x)
+  z<-cor( mat[47,] , mat[i,])
+  vec3 <- c(vec3,z)
+}
+```
+
+```{r}
+# add new features to dataframe
+subset <- subset %>% mutate(cora = vec1)
+subset <- subset %>% mutate(corc = vec3)
+```
+
+```{r}
+# make scatter plot comparing new features
+data <- read.csv('data-frame.csv')
+
+ggplot(
+  data,
+  aes(x=cora,y=corc)
+) + geom_point()
+```
+
+### Exercise 4: Challenge
+
+```{r}
+library(e1071)
+library(plotly)
+library(htmltools)
+library(devtools)
+library(caret)
+library(NbClust)
+```
+
+
+```{r}
+# Min Max Scaler Function
+normalize <- function(x){
+ (x - min(x)) / (max(x) - min(x))
+}
+```
+
+```{r}
+# Subset Numeric Columns
+data <- data[, c('num_turns', 'cora', 'corc')]
+
+# Remove All Rows with Missing Values
+data <- data[complete.cases(data), ]
+
+# Subset Numeric Variables and Apply Normalize Function to Each Column
+num_fields = names(select_if(data, is.numeric))
+data[num_fields] <- as_tibble(lapply(data[num_fields], normalize))
+
+head(data)
+```
+
+```{r}
+sum(is.na(data$num_turns))
+sum(is.na(data$cora))
+sum(is.na(data$corc))
+```
+
+```{r}
+# Set Random State Seed
+set.seed(2000)
+
+kmeans_ = kmeans(
+  data, # Subsetted Data (Redundancy Removed)
+  centers=2,  # Initialize Two Clusters
+  algorithm="Lloyd"
+) 
+
+# Output K-Means Model Information
+head(kmeans_)
+```
+
+```{r}
+# Initial Model Evaluation
+num_ = kmeans_$betweenss
+denom_ = kmeans_$totss
+var_exp = num_ / denom_
+cat('Variance Explained:', var_exp)
+```
+
+### Elbow Plot
+```{r}
+# Function to Repeatedly Create K-Means Model with Different Numbers of Clusters
+  # return: variance explained by the clusters for each k
+explained_variance = function(data_in, k){
+  
+  # Running the K-Means algorithm.
+  set.seed(2000)
+  
+  kmeans_ = kmeans(
+    data_in, 
+    centers=k,
+    algorithm="Lloyd",
+    iter.max=30
+  )
+  
+  # Variance accounted for by clusters: intercluster variance / total variance
+  var_exp = kmeans_$betweenss / kmeans_$totss
+  var_exp  
+}
+
+explained_var = sapply(1:10, explained_variance, data_in=data)
+```
+
+```{r echo=FALSE}
+# Store Iterations x Explained Variance as a Data Frame
+elbow = data.frame(k=1:10, explained_var_nba)
+
+# Plot Scatter/Line Plot of the Explained Variance for each iteration
+ggplot(elbow, 
+       aes(x = k,  
+           y = explained_var_nba)) + 
+  geom_point(size = 4) +           
+  geom_line(size = 1) +           
+  xlab('k') + 
+  ylab('Inter-Cluster Variance / Total Variance') + 
+  theme_light()
+```
+
+```{r}
+# Set Random State Seed
+set.seed(2000)
+
+kmeans_ = kmeans(
+  data, # Subsetted Data (Redundancy Removed)
+  centers=4,  # Initialize Five Clusters
+  algorithm="Lloyd"
+) 
+
+# Output K-Means Model Information
+head(kmeans_)
+```
+
+```{r}
+# Final Model Evaluation
+num_ = kmeans_$betweenss
+denom_ = kmeans_$totss
+var_exp = num_ / denom_
+cat('Variance Explained:', var_exp)
+```
+
+### NbClust
+```{r include=FALSE}
+# Use NbClust to Select a Number of Clusters
+nbclust_ = NbClust(
+  data=data, method="kmeans"
+)
+nbclust_
+```
+
+```{r}
+# Save Cluster Recommendations as a Data Frame
+freq_k = nbclust_$Best.nc[1,]
+freq_k = data.frame(freq_k)
+
+# Plot Histogram of Cluster Recommendations
+ggplot(freq_k,
+       aes(x = freq_k)) +
+  geom_bar() +
+  scale_x_continuous(breaks = seq(0, 15, by = 1)) +
+  scale_y_continuous(breaks = seq(0, 12, by = 1)) +
+  labs(x="Number of Clusters",
+       y="Number of Votes",
+       title = "Cluster Analysis")
+```
+
+```{r}
+# Set Random State Seed
+set.seed(2000)
+
+kmeans_ = kmeans(
+  data, # Subsetted Data (Redundancy Removed)
+  centers=8,
+  algorithm="Lloyd"
+) 
+
+# Output K-Means Model Information
+head(kmeans_)
+```
+
+```{r}
+# Final Model Evaluation
+num_ = kmeans_$betweenss
+denom_ = kmeans_$totss
+var_exp = num_ / denom_
+cat('Variance Explained:', var_exp)
+```
+
+```{r}
+# Add Clusters as Factor Column to Data Set
+clusters = as.factor(kmeans_$cluster)
+data$clusters <- clusters
+```
+
+```{r}
+ggplot(data, aes(x=cora, 
+                 y=corc,
+                 color=clusters,
+                 shape=clusters)) +
+  geom_point(size = 6) +
+  ggtitle("cora vs. corc") +
+  xlab("cora") +
+  ylab("corc") +
+  scale_shape_manual(name="Cluster", 
+                     labels=c("C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8"),
+                     values=c("1", "2", "3", "4", "5", "6", "7", "8")) +
+  theme_light()
+```
+
+```{r echo-FALSE}
+# Plot 3D Scatter Plot (X=MP, Y=PTS, Z=AST) using Plotly
+fig <- plot_ly(data, 
+               type = "scatter3d",
+               mode="markers",
+               symbol = ~clusters,
+               x = ~cora, 
+               y = ~corc, 
+               z = ~num_turns,
+               color = ~clusters,
+               text = ~paste('cora:', cora,
+                             "corc:", corc,
+                             "Turns:", num_turns))
+fig
+```
+
